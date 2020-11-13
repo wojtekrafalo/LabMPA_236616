@@ -12,7 +12,7 @@ from src.list2.perm_impl import generate_random_perm
 # CHEB_PROB = 0.8
 # I_MIN = -100_000
 # I_MAX = 100_000
-
+EPS = 0.0000001
 
 def print_analysis(functions, constants):
     data, hist = collect_data(functions.fun, functions.theo_ex_fun, functions.theo_var_fun, constants)
@@ -76,7 +76,8 @@ def collect_data(fun, theoretical_ex_fun, theoretical_var_fun, constants):
         es_max, es_min, es_ex, es_var = estimate_ex_val_and_variance_for_n(n, fun, constants.REPS)
         teo_ex = theoretical_ex_fun(n, fun)
         teo_var = theoretical_var_fun(n, fun)
-        czeb_width = chebyshev_width(teo_var, constants.CHEB_PROB)
+        # czeb_width = chebyshev_width(teo_var, constants.CHEB_PROB)
+        czeb_width = chernoff_width(teo_ex, constants.CHEB_PROB)
 
         data_comparisons.append(
             DataAnalysis(n, es_max, es_min, es_ex, es_var, teo_ex, teo_var, czeb_width))
@@ -114,9 +115,11 @@ def count_chebyshev_for_kurtosis(hist, hist_reps, cheb_prob):
     var = var - (ex * ex)
 
     for i in hist:
-        if abs(ex - i) <= chebyshev_width(var, cheb_prob):
+        # if abs(ex - i) <= chebyshev_width(var, cheb_prob):
+        if abs(ex - i) <= chernoff_width(ex, cheb_prob):
             num_cheb += hist[i]
-    return num_cheb / hist_reps, ex, chebyshev_width(var, cheb_prob)
+    # return num_cheb / hist_reps, ex, chebyshev_width(var, cheb_prob)
+    return num_cheb / hist_reps, ex, chernoff_width(ex, cheb_prob)
 
 
 def estimate_ex_val_and_variance_for_n(n, fun, reps):
@@ -162,3 +165,28 @@ def get_variable_value(n, fun):
 
 def chebyshev_width(var, p):
     return math.sqrt(abs(var / p))
+
+
+def chernoff_width(ex, p):
+    a = 0
+    b = 1
+    delta = 0
+    while chernoff_bisearch(b, p) - p > EPS:
+        b *= 2
+
+    while abs(b-a) > EPS:
+        delta = (a+b)/2
+        cher = chernoff_bisearch(delta, p)
+
+        if abs(cher - ex) < EPS:
+            break
+        elif cher - p > EPS:
+            a = delta
+        else:
+            b = delta
+    return delta
+
+
+def chernoff_bisearch(delta, p):
+    return pow(pow(math.e, delta) / pow(1+delta, 1+delta), p)
+
